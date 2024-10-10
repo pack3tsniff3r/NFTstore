@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { ConnectButton } from "@arweave-wallet-kit/react";
+import { ConnectButton } from "arweave-wallet-kit";
 import './NavBar.css';
 
 function NavBar() {

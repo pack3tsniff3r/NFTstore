@@ -61,14 +61,19 @@ export const Home = () => {
             }
           }
 
+          // Check if block is available before accessing timestamp
+          const timestamp = edge.node.block 
+            ? new Date(edge.node.block.timestamp * 1000).toISOString() 
+            : "N/A";
+
           return {
             txID: edge.node.id,
             owner: parsedInitState.owner || "Unknown Owner",
-            title: parsedInitState.name || "Untitled",
+            title: parsedInitState.title || "Untitled",
             description: parsedInitState.description || "No description",
             size: edge.node.data.size,
             type: edge.node.data.type,
-            timestamp: new Date(edge.node.block.timestamp * 1000).toISOString(),
+            timestamp: timestamp,
             price: parsedInitState.price || "N/A",
           };
         });

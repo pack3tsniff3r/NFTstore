@@ -1,200 +1,201 @@
 import React, { useState } from "react";
 import Arweave from "arweave";
-import { useActiveAddress, useConnection} from 'arweave-wallet-kit';
+import { useActiveAddress } from 'arweave-wallet-kit';
+
 export const Mint = () => {
-  const { walletAddress }= useActiveAddress();
-  const { connect, disconnect } =useConnection();
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [contractId, setContractId] = useState("");
-  const [imageTxId, setImageTxId] = useState("");
+    const arweave = Arweave.init({
+        host: 'arweave.net',
+        port: 443,
+        protocol: 'https'
+    });
 
-  const arweave = Arweave.init({
-    host: 'arweave.net',
-    port: 443,
-    protocol: 'https',
-  });
+    const walletAddress = useActiveAddress();
+    const [description, setDescription] = useState("");
+    const [title, setTitle] = useState("");
+    const [price, setPrice] = useState("");
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [contractId, setContractId] = useState("");
+    const [imageTxId, setImageTxId] = useState("");
+    const [showConfirmation, setShowConfirmation] = useState(false);
 
-  const getContentType = (file) => {
-    return file.type || "application/octet-stream";
-  };
+    const getContentType = (file) => {
+        return file.type || "application/octet-stream";
+    };
 
-  const handleFileChange = (e) => {
-    setSelectedFile(e.target.files[0]);
-  };
+    const handleFileChange = (e) => {
+        setSelectedFile(e.target.files[0]);
+    };
 
-  const handleMint = async (e) => {
-    e.preventDefault();
-    
-    if (!selectedFile || !price) {
-      setError('Please select a file and set a price');
-      return;
-    }
+    const handleMint = async (e) => {
+        e.preventDefault();
 
-    setLoading(true);
-    setError('');
-
-    try {
-      // Connect to the Arweave wallet
-      await connect();
-
-      const walletAddress = await arweaveWallet.getActiveAddress();
-
-      const contractSource = `
-        // SmartWeave contract source code goes here...
-        export function handle(state, action) {
-          const input = action.input;
-          const caller = action.caller;
-          // Example: handling transfers, balances, and ownership
-          switch (input.function) {
-            case 'transfer':
-              const target = input.target;
-              const qty = input.qty;
-              if (!state.balances[caller] || state.balances[caller] < qty) {
-                throw new Error('Not enough balance');
-              }
-              if (!state.balances[target]) {
-                state.balances[target] = 0;
-              }
-              state.balances[caller] -= qty;
-              state.balances[target] += qty;
-              return { state };
-            case 'balance':
-              return { result: { balance: state.balances[caller] } };
-            default:
-              throw new ContractError('Invalid function');
-          }
+        if (!selectedFile || !price || !title || !description) {
+            setError('Please provide a title, description, file, and price.');
+            return;
         }
-      `;
 
-      // Create and post the contract source transaction
-      const cSrcTransaction = await arweave.createTransaction({ data: contractSource });
-      cSrcTransaction.addTag('Content-Type', 'application/javascript');
-      cSrcTransaction.addTag('App-Name', 'SmartWeaveContractSource');
-      cSrcTransaction.addTag('App-Version', '0.3.0');
-      await arweave.transactions.sign(cSrcTransaction, 'use_wallet');
-      await arweave.transactions.post(cSrcTransaction);
+        setLoading(true);
+        setError('');
 
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const fileData = e.target.result;
+        try {
+            // Step 1: Upload the SmartWeave contract source
+            const src = `
+                const functions = { balance, transfer };
 
-        // Create the actual contract transaction
-        const contract = await arweave.createTransaction({ data: fileData });
-        contract.addTag('Content-Type', getContentType(selectedFile));
-        contract.addTag('Network', 'PermaPress');
-        contract.addTag('App-Name', 'SmartWeaveContract');
-        contract.addTag('App-Version', '0.3.1');
-        contract.addTag('Contract-Src', cSrcTransaction.id);  // Link the contract to the source
-        contract.addTag('Type', 'asset');
-        contract.addTag('Price', price);
-        contract.addTag('Title', title);  // Add title tag
-        contract.addTag('Description', description || 'No description provided');  // Add description tag
-        contract.addTag('Init-State', JSON.stringify({
-          owner: walletAddress,
-          name: title,
-          description: description || 'No description provided',
-          price: price,
-          ticker: 'ATOMIC',
-          balances: {
-            [walletAddress]: 1,
-          },
-          locked: [],
-          createdAt: Date.now(),
-          tags: [],
-        }));
+                export function handle(state, action) {
+                    if (Object.keys(functions).includes(action.input.function)) {
+                        return functions[action.input.function](state, action);
+                    }
+                    throw new ContractError('function not defined!');
+                }
 
-        // Sign and post the contract transaction
-        await arweave.transactions.sign(contract, 'use_wallet');
-        await arweave.transactions.post(contract);
-        
-        // Save transaction details
-        setContractId(contract.id);
-        setImageTxId(contract.id);
-      };
+                function balance(state, action) {
+                    const { input, caller } = action;
+                    let target = input.target ? input.target : caller;
+                    const { ticker, balances } = state;
+                    ContractAssert(typeof target === 'string', 'Must specify target to retrieve balance for');
+                    return {
+                        result: {
+                            target,
+                            ticker,
+                            balance: target in balances ? balances[target] : 0
+                        }
+                    };
+                }
 
-      reader.readAsArrayBuffer(selectedFile);
-    } catch (err) {
-      console.error('Error during minting:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+                function transfer(state, action) {
+                    const { input, caller } = action;
+                    const { target, qty } = input;
+                    ContractAssert(target, 'No target specified');
+                    ContractAssert(caller !== target, 'Invalid Token Transfer.');
+                    ContractAssert(qty, 'No quantity specified');
+                    const { balances } = state;
+                    ContractAssert(
+                        caller in balances && balances[caller] >= qty,
+                        'Caller has insufficient funds'
+                    );
+                    balances[caller] -= qty;
+                    if (!(target in balances)) {
+                        balances[target] = 0;
+                    }
+                    balances[target] += qty;
+                    state.balances = balances;
+                    return { state };
+                }
+            `;
 
-  return (
-    <div className="mint-container">
-      <h1 className="text-2xl font-bold mb-5">Mint a New NFT</h1>
-      <form onSubmit={handleMint} className="space-y-4">
+            const cSrc = await arweave.createTransaction({ data: src });
+            cSrc.addTag('Content-Type', 'application/javascript');
+            cSrc.addTag('App-Name', 'SmartWeaveContractSource');
+            cSrc.addTag('App-Version', '0.3.0');
+            await arweave.transactions.sign(cSrc, "use_wallet");
+            await arweave.transactions.post(cSrc);
+
+            // Step 2: Create the NFT transaction
+            const fileBuffer = await selectedFile.arrayBuffer();
+            const contract = await arweave.createTransaction({ data: fileBuffer });
+
+            // Adding tags for NFT transaction
+            contract.addTag('Content-Type', getContentType(selectedFile));
+            contract.addTag('Network', 'PermaPress');
+            contract.addTag('App-Name', 'SmartWeaveContract');
+            contract.addTag('App-Version', '0.3.1');
+            contract.addTag('Contract-Src', cSrc.id); // Link to contract source
+            contract.addTag('NSFW', 'false');
+            contract.addTag('Init-State', JSON.stringify({
+                owner: walletAddress,
+                title: title,
+                description: description,
+                ticker: 'ATOMICNFT',
+                balances: { [walletAddress]: 1 },
+                price: price,
+                locked: [],
+                contentType: getContentType(selectedFile),
+                createdAt: Date.now(),
+                tags: [],
+                isPrivate: false
+            }));
+
+            // Sign and post the NFT transaction
+            await arweave.transactions.sign(contract, "use_wallet");
+            await arweave.transactions.post(contract);
+
+            // Set contractId and imageTxId to display later
+            setContractId(contract.id);
+            setImageTxId(contract.id); // Can also be the image tx id
+
+            // Clear inputs and show confirmation modal
+            setShowConfirmation(true);
+        } catch (err) {
+            console.error(err);
+            setError("Minting failed, please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
         <div>
-          <label className="block text-lg font-medium">Title</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="input-field"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-lg font-medium">Description</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="input-field"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-lg font-medium">Price</label>
-          <input
-            type="number"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="input-field"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-lg font-medium">Upload Image</label>
-          <input
-            type="file"
-            onChange={handleFileChange}
-            accept="image/*"
-            className="input-field"
-            required
-          />
-        </div>
-        <button
-          type="submit"
-          className="btn btn-primary"
-          disabled={loading}
-        >
-          {loading ? "Minting..." : "Mint NFT"}
-        </button>
-      </form>
+            <h1>Mint your NFT</h1>
+            <form onSubmit={handleMint}>
+                <input 
+                    type="text" 
+                    placeholder="Title" 
+                    value={title} 
+                    onChange={(e) => setTitle(e.target.value)} 
+                    required 
+                />
+                <input 
+                    type="text" 
+                    placeholder="Description" 
+                    value={description} 
+                    onChange={(e) => setDescription(e.target.value)} 
+                    required 
+                />
+                <input 
+                    type="number" 
+                    placeholder="Price" 
+                    value={price} 
+                    onChange={(e) => setPrice(e.target.value)} 
+                    required 
+                />
+                <input 
+                    type="file" 
+                    accept=".jpg,.jpeg,.png,.pdf" 
+                    onChange={handleFileChange} 
+                    required 
+                />
+                {error && <p style={{ color: 'red' }}>{error}</p>}
+                <button type="submit" disabled={loading}>
+                    {loading ? 'Minting...' : 'Mint NFT'}
+                </button>
+            </form>
 
-      {error && <p className="text-red-500 mt-4">{error}</p>}
-      {contractId && (
-        <p className="text-green-500 mt-4">
-          NFT minted successfully! Contract ID: {contractId}
-        </p>
-      )}
-
-      {walletAddress ? (
-        <button onClick={disconnect} className="btn btn-secondary mt-4">
-          Disconnect Wallet
-        </button>
-      ) : (
-        <button onClick={connect} className="btn btn-primary mt-4">
-          Connect Wallet
-        </button>
-      )}
-    </div>
-  );
+            {showConfirmation && (
+                <div className="modal">
+                    <h2>Mint Confirmation</h2>
+                    <p><strong>Title:</strong> {title}</p>
+                    <p><strong>Description:</strong> {description}</p>
+                    <p><strong>Price:</strong> {price} AR</p>
+                    <p><strong>Transaction ID:</strong> {contractId}</p>
+                    {imageTxId && (
+                        <div>
+                            <h3>Uploaded Image</h3>
+                            <img 
+                                src={`https://arweave.net/${imageTxId}`} 
+                                alt="NFT" 
+                                style={{ width: '300px', height: '300px' }} 
+                            />
+                        </div>
+                    )}
+                    <button onClick={() => setShowConfirmation(false)}>Close</button>
+                </div>
+            )}
+        </div>
+    );
 };
 
 export default Mint;
+
