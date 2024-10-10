@@ -11,6 +11,8 @@ function NavBar() {
         <li><NavLink to="/">Home</NavLink></li>
        
         <li><NavLink to="/mint">Mint</NavLink></li>
+
+        <li><NavLink to="/purchase">Purchase</NavLink></li>
         
       </ul>
       <div className="wallet-connect">

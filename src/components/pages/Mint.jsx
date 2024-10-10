@@ -40,51 +40,60 @@ export const Mint = () => {
         setError('');
 
         try {
-            // Step 1: Upload the SmartWeave contract source
-            const src = `
-                const functions = { balance, transfer };
+            const src = `// SmartWeave Contract Source Code
+const functions = { balance, transfer, updateState };
 
-                export function handle(state, action) {
-                    if (Object.keys(functions).includes(action.input.function)) {
-                        return functions[action.input.function](state, action);
-                    }
-                    throw new ContractError('function not defined!');
-                }
+export function handle(state, action) {
+    if (Object.keys(functions).includes(action.input.function)) {
+        return functions[action.input.function](state, action);
+    }
+    throw new ContractError('function not defined!');
+}
 
-                function balance(state, action) {
-                    const { input, caller } = action;
-                    let target = input.target ? input.target : caller;
-                    const { ticker, balances } = state;
-                    ContractAssert(typeof target === 'string', 'Must specify target to retrieve balance for');
-                    return {
-                        result: {
-                            target,
-                            ticker,
-                            balance: target in balances ? balances[target] : 0
-                        }
-                    };
-                }
+function balance(state, action) {
+    const { input, caller } = action;
+    let target = input.target ? input.target : caller;
+    const { ticker, balances } = state;
+    ContractAssert(typeof target === 'string', 'Must specify target to retrieve balance for');
+    return {
+        result: {
+            target,
+            ticker,
+            balance: target in balances ? balances[target] : 0
+        }
+    };
+}
 
-                function transfer(state, action) {
-                    const { input, caller } = action;
-                    const { target, qty } = input;
-                    ContractAssert(target, 'No target specified');
-                    ContractAssert(caller !== target, 'Invalid Token Transfer.');
-                    ContractAssert(qty, 'No quantity specified');
-                    const { balances } = state;
-                    ContractAssert(
-                        caller in balances && balances[caller] >= qty,
-                        'Caller has insufficient funds'
-                    );
-                    balances[caller] -= qty;
-                    if (!(target in balances)) {
-                        balances[target] = 0;
-                    }
-                    balances[target] += qty;
-                    state.balances = balances;
-                    return { state };
-                }
-            `;
+function transfer(state, action) {
+    const { input, caller } = action;
+    const { target, qty } = input;
+    ContractAssert(target, 'No target specified');
+    ContractAssert(caller !== target, 'Invalid Token Transfer.');
+    ContractAssert(qty, 'No quantity specified');
+    const { balances } = state;
+    ContractAssert(
+        caller in balances && balances[caller] >= qty,
+        'Caller has insufficient funds'
+    );
+    balances[caller] -= qty;
+    if (!(target in balances)) {
+        balances[target] = 0;
+    }
+    balances[target] += qty;
+    state.balances = balances;
+    return { state };
+}
+
+function updateState(state, action) {
+    const { input, caller } = action;
+    ContractAssert(caller === state.owner, 'Only the owner can update the state');
+    state.owner = input.newOwner; // Update owner
+    state.title = input.newTitle; // Update title
+    state.description = input.newDescription; // Update description
+    state.price = input.newPrice; // Update price
+    return { state };
+}
+ `;
 
             const cSrc = await arweave.createTransaction({ data: src });
             cSrc.addTag('Content-Type', 'application/javascript');
@@ -92,17 +101,15 @@ export const Mint = () => {
             cSrc.addTag('App-Version', '0.3.0');
             await arweave.transactions.sign(cSrc, "use_wallet");
             await arweave.transactions.post(cSrc);
-
-            // Step 2: Create the NFT transaction
+            console.log("Contract Source ID:", cSrc.id)
             const fileBuffer = await selectedFile.arrayBuffer();
             const contract = await arweave.createTransaction({ data: fileBuffer });
 
-            // Adding tags for NFT transaction
             contract.addTag('Content-Type', getContentType(selectedFile));
             contract.addTag('Network', 'PermaPress');
             contract.addTag('App-Name', 'SmartWeaveContract');
             contract.addTag('App-Version', '0.3.1');
-            contract.addTag('Contract-Src', cSrc.id); // Link to contract source
+            contract.addTag('Contract-Src', cSrc.id);
             contract.addTag('NSFW', 'false');
             contract.addTag('Init-State', JSON.stringify({
                 owner: walletAddress,
@@ -118,15 +125,12 @@ export const Mint = () => {
                 isPrivate: false
             }));
 
-            // Sign and post the NFT transaction
             await arweave.transactions.sign(contract, "use_wallet");
             await arweave.transactions.post(contract);
 
-            // Set contractId and imageTxId to display later
             setContractId(contract.id);
-            setImageTxId(contract.id); // Can also be the image tx id
+            setImageTxId(contract.id);
 
-            // Clear inputs and show confirmation modal
             setShowConfirmation(true);
         } catch (err) {
             console.error(err);
@@ -198,4 +202,3 @@ export const Mint = () => {
 };
 
 export default Mint;
-

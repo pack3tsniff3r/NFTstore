@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { request, gql } from "graphql-request";
-import SearchBar from "../SearchBar"; // Import SearchBar
+import SearchBar from "../SearchBar";
+import { useNavigate } from 'react-router-dom';
 
 export const Home = () => {
   const [results, setResults] = useState([]);
+  const navigate = useNavigate();
 
   const homeQuery = gql`
     query($name: String!, $values: [String!]!) {
@@ -51,6 +53,7 @@ export const Home = () => {
 
         const resultsBuilder = edges.map((edge) => {
           const initStateTag = edge.node.tags.find(tag => tag.name === "Init-State");
+          const contractSrcTag = edge.node.tags.find(tag => tag.name === "Contract-Src");
 
           let parsedInitState = {};
           if (initStateTag) {
@@ -61,13 +64,13 @@ export const Home = () => {
             }
           }
 
-          // Check if block is available before accessing timestamp
           const timestamp = edge.node.block 
             ? new Date(edge.node.block.timestamp * 1000).toISOString() 
             : "N/A";
 
           return {
             txID: edge.node.id,
+            contractSrc: contractSrcTag ? contractSrcTag.value : "Unknown",  // Fetching Contract-Src tag value
             owner: parsedInitState.owner || "Unknown Owner",
             title: parsedInitState.title || "Untitled",
             description: parsedInitState.description || "No description",
@@ -91,11 +94,23 @@ export const Home = () => {
     fetchResults();
   }, []);
 
+  const handlePurchaseClick = (result) => {
+    navigate('/purchase', { 
+      state: { 
+        txId: result.txID,
+        contractSrc: result.contractSrc,   // Passing Contract-Src value to the purchase page
+        currentOwner: result.owner,
+        currentPrice: result.price,
+        currentTitle: result.title,
+        currentDescription: result.description 
+      }
+    });
+  };
+
   return (
     <>
       <div>
         <h1 className="text-center text-2xl font-bold my-5">Easy Minter 2000</h1>
-        {/* Searchbar component */}
         <SearchBar />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
@@ -130,6 +145,16 @@ export const Home = () => {
 
               <h3 className="text-lg font-semibold text-primary mt-3">Price:</h3>
               <p className="text-sm">{result.price}</p>
+              
+              <h3 className="text-lg font-semibold text-primary mt-3">Contract-Src:</h3>
+              <p className="text-sm">{result.contractSrc}</p>
+
+              <button 
+                onClick={() => handlePurchaseClick(result)} 
+                className="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+              >
+                Purchase
+              </button>
             </div>
           </div>
         ))}
