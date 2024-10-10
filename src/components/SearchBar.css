@@ -1,0 +1,65 @@
+/* Searchbar.css */
+.searchbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem;
+    background-color: #343a40;
+    border-radius: 0.5rem;
+  }
+  
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+  }
+  
+  .nav-item label {
+    margin-bottom: 0.5rem;
+    color: #f8f9fa;
+  }
+  
+  input,
+  select {
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid #6c757d;
+    background-color: #495057;
+    color: #f8f9fa;
+  }
+  
+  input[type="date"],
+  input[type="number"] {
+    max-width: 200px;
+  }
+  
+  button {
+    padding: 0.5rem 1rem;
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  button:hover {
+    background-color: #218838;
+  }
+  
+  @media (max-width: 768px) {
+    .searchbar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  
+    input[type="date"],
+    input[type="number"] {
+      max-width: 100%;
+    }
+  
+    button {
+      align-self: stretch;
+    }
+  }
+  
