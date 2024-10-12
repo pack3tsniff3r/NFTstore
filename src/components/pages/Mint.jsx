@@ -40,8 +40,7 @@ export const Mint = () => {
         setError('');
 
         try {
-            const src = `// SmartWeave Contract Source Code
-const functions = { balance, transfer, updateState };
+            const src = `const functions = { balance, transfer, updateState, buy };
 
 export function handle(state, action) {
     if (Object.keys(functions).includes(action.input.function)) {
@@ -91,9 +90,30 @@ function updateState(state, action) {
     state.title = input.newTitle; // Update title
     state.description = input.newDescription; // Update description
     state.price = input.newPrice; // Update price
+    state.forSale = input.forSale; // Update for sale status
     return { state };
 }
- `;
+
+function buy(state, action) {
+    const { input, caller } = action;
+    const { price, newTitle, newDescription, forSale } = input;
+
+    // Ensure the buyer can afford the price
+    ContractAssert(caller in state.balances && state.balances[caller] >= price, 'Insufficient funds');
+
+    // Transfer ownership
+    state.balances[state.owner] = 0;  // Set seller's balance to 0
+    state.balances[caller] = 1;  // Set buyer's balance to 1
+
+    // Update state
+    state.owner = caller;
+    state.title = newTitle;
+    state.description = newDescription;
+    state.price = price;
+    state.forSale = forSale;  // Buyer sets the for sale status
+
+    return { state };
+}`;
 
             const cSrc = await arweave.createTransaction({ data: src });
             cSrc.addTag('Content-Type', 'application/javascript');
@@ -102,6 +122,7 @@ function updateState(state, action) {
             await arweave.transactions.sign(cSrc, "use_wallet");
             await arweave.transactions.post(cSrc);
             console.log("Contract Source ID:", cSrc.id)
+
             const fileBuffer = await selectedFile.arrayBuffer();
             const contract = await arweave.createTransaction({ data: fileBuffer });
 
@@ -122,7 +143,9 @@ function updateState(state, action) {
                 contentType: getContentType(selectedFile),
                 createdAt: Date.now(),
                 tags: [],
-                isPrivate: false
+                isPrivate: false,
+                forSale: true, // Initially, the NFT is for sale
+                immutableTxId: contract.id // Link to the immutable NFT file transaction
             }));
 
             await arweave.transactions.sign(contract, "use_wallet");
