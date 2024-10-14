@@ -28,6 +28,15 @@ export const Mint = () => {
         setSelectedFile(e.target.files[0]);
     };
 
+    const convertFileToArrayBuffer = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsArrayBuffer(file);
+        });
+    };
+
     const handleMint = async (e) => {
         e.preventDefault();
 
@@ -40,7 +49,9 @@ export const Mint = () => {
         setError('');
 
         try {
-            const src = `const functions = { balance, transfer, updateState, buy };
+            // Step 1: Upload Contract Source Code
+            const contractSrc = `
+const functions = { balance, transfer, updateState, buy };
 
 export function handle(state, action) {
     if (Object.keys(functions).includes(action.input.function)) {
@@ -103,123 +114,113 @@ function buy(state, action) {
 
     // Transfer ownership
     state.balances[state.owner] = 0;  // Set seller's balance to 0
-    state.balances[caller] = 1;  // Set buyer's balance to 1
+    state.balances[caller] = 1; // Set buyer's balance to 1
 
-    // Update state
+    // Update the Init-State
     state.owner = caller;
-    state.title = newTitle;
-    state.description = newDescription;
-    state.price = price;
-    state.forSale = forSale;  // Buyer sets the for sale status
+    state.title = newTitle; // Update title to new title
+    state.description = newDescription; // Update description to new description
+    state.price = price; // Update price
+    state.forSale = forSale; // Update for sale status
+    state.sold = true; // Mark as sold
 
     return { state };
-}`;
+};
 
-            const cSrc = await arweave.createTransaction({ data: src });
-            cSrc.addTag('Content-Type', 'application/javascript');
-            cSrc.addTag('App-Name', 'SmartWeaveContractSource');
-            cSrc.addTag('App-Version', '0.3.0');
-            await arweave.transactions.sign(cSrc, "use_wallet");
-            await arweave.transactions.post(cSrc);
-            console.log("Contract Source ID:", cSrc.id)
+export { handle };
+`;
 
-            const fileBuffer = await selectedFile.arrayBuffer();
-            const contract = await arweave.createTransaction({ data: fileBuffer });
+            const contractSrcTx = await arweave.createTransaction({
+                data: contractSrc,
+            });
+            contractSrcTx.addTag("Content-Type", "text/javascript");
+            await arweave.transactions.sign(contractSrcTx, walletAddress); // Sign with wallet address
+            await arweave.transactions.post(contractSrcTx);
 
-            contract.addTag('Content-Type', getContentType(selectedFile));
-            contract.addTag('Network', 'PermaPress');
-            contract.addTag('App-Name', 'SmartWeaveContract');
-            contract.addTag('App-Version', '0.3.1');
-            contract.addTag('Contract-Src', cSrc.id);
-            contract.addTag('NSFW', 'false');
-            contract.addTag('Init-State', JSON.stringify({
+            setContractId(contractSrcTx.id);  // Save the Contract ID
+
+            // Step 2: Convert file to ArrayBuffer for Arweave transaction
+            const fileArrayBuffer = await convertFileToArrayBuffer(selectedFile);
+
+            // Step 3: Upload the Image with Init-State
+            const imageTransaction = await arweave.createTransaction({
+                data: fileArrayBuffer,
+            });
+            imageTransaction.addTag("Network", "PermaPress");
+            imageTransaction.addTag("Content-Type", getContentType(selectedFile));
+            imageTransaction.addTag("Init-State", JSON.stringify({
                 owner: walletAddress,
-                title: title,
-                description: description,
-                ticker: 'ATOMICNFT',
-                balances: { [walletAddress]: 1 },
-                price: price,
-                locked: [],
-                contentType: getContentType(selectedFile),
-                createdAt: Date.now(),
-                tags: [],
-                isPrivate: false,
-                forSale: true, // Initially, the NFT is for sale
-                immutableTxId: contract.id // Link to the immutable NFT file transaction
+                title,
+                description,
+                price,
+                balance: 1,
+                sold: false, // Initialize as not sold
             }));
+            imageTransaction.addTag("Contract-Src", contractSrcTx.id);  // Linking the image to the contract
 
-            await arweave.transactions.sign(contract, "use_wallet");
-            await arweave.transactions.post(contract);
+            await arweave.transactions.sign(imageTransaction, walletAddress); // Sign with wallet address
+            await arweave.transactions.post(imageTransaction);
 
-            setContractId(contract.id);
-            setImageTxId(contract.id);
-
+            setImageTxId(imageTransaction.id);  // Save the Image Transaction ID
             setShowConfirmation(true);
+
         } catch (err) {
-            console.error(err);
-            setError("Minting failed, please try again.");
+            setError('Error minting NFT: ' + err.message);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div>
-            <h1>Mint your NFT</h1>
+        <div className="mint-container">
+            <h1 className="text-center text-2xl font-bold mb-4">Mint Your NFT</h1>
             <form onSubmit={handleMint}>
-                <input 
-                    type="text" 
-                    placeholder="Title" 
-                    value={title} 
-                    onChange={(e) => setTitle(e.target.value)} 
-                    required 
-                />
-                <input 
-                    type="text" 
-                    placeholder="Description" 
-                    value={description} 
-                    onChange={(e) => setDescription(e.target.value)} 
-                    required 
-                />
-                <input 
-                    type="number" 
-                    placeholder="Price" 
-                    value={price} 
-                    onChange={(e) => setPrice(e.target.value)} 
-                    required 
-                />
-                <input 
-                    type="file" 
-                    accept=".jpg,.jpeg,.png,.pdf" 
-                    onChange={handleFileChange} 
-                    required 
-                />
-                {error && <p style={{ color: 'red' }}>{error}</p>}
-                <button type="submit" disabled={loading}>
-                    {loading ? 'Minting...' : 'Mint NFT'}
-                </button>
-            </form>
-
-            {showConfirmation && (
-                <div className="modal">
-                    <h2>Mint Confirmation</h2>
-                    <p><strong>Title:</strong> {title}</p>
-                    <p><strong>Description:</strong> {description}</p>
-                    <p><strong>Price:</strong> {price} AR</p>
-                    <p><strong>Transaction ID:</strong> {contractId}</p>
-                    {imageTxId && (
-                        <div>
-                            <h3>Uploaded Image</h3>
-                            <img 
-                                src={`https://arweave.net/${imageTxId}`} 
-                                alt="NFT" 
-                                style={{ width: '300px', height: '300px' }} 
-                            />
-                        </div>
-                    )}
-                    <button onClick={() => setShowConfirmation(false)}>Close</button>
+                <div>
+                    <label htmlFor="title">Title</label>
+                    <input
+                        type="text"
+                        id="title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        required
+                    />
                 </div>
-            )}
+                <div>
+                    <label htmlFor="description">Description</label>
+                    <textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        required
+                    ></textarea>
+                </div>
+                <div>
+                    <label htmlFor="price">Price</label>
+                    <input
+                        type="number"
+                        id="price"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        required
+                    />
+                </div>
+                <div>
+                    <label htmlFor="file">File</label>
+                    <input type="file" id="file" onChange={handleFileChange} required />
+                </div>
+                <button type="submit" disabled={loading}>
+                    {loading ? "Minting..." : "Mint NFT"}
+                </button>
+                {error && <p className="text-red-600">{error}</p>}
+                {showConfirmation && (
+                    <div className="confirmation-message">
+                        <h2 className="text-green-600">Minting Successful!</h2>
+                        <p>Your NFT has been minted with the following Transaction IDs:</p>
+                        <p>Contract Source: {contractId}</p>
+                        <p>Image: {imageTxId}</p>
+                    </div>
+                )}
+            </form>
         </div>
     );
 };

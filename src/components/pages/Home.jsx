@@ -1,165 +1,171 @@
 import React, { useState, useEffect } from "react";
-import { request, gql } from "graphql-request";
-import SearchBar from "../SearchBar";
 import { useNavigate } from 'react-router-dom';
+import SearchBar from "../SearchBar";
 
 export const Home = () => {
-  const [results, setResults] = useState([]);
+  const [contractTxIds, setContractTxIds] = useState([]);
+  const [transactionData, setTransactionData] = useState([]);
   const navigate = useNavigate();
 
-  const homeQuery = gql`
-    query($name: String!, $values: [String!]!) {
+  const executeGraphQL = async (query) => {
+    try {
+      const response = await fetch('https://arweave.net/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Query failed with status code ${response.status}: ${await response.text()}`);
+      }
+
+      const result = await response.json();
+      return result.data.transactions.edges;
+    } catch (error) {
+      console.error("Error executing GraphQL query:", error);
+    }
+  };
+
+  const fetchNetworkTransactions = async () => {
+    const networkTxQuery = `
+    {
       transactions(
-        tags: {
-          name: $name
-          values: $values
-        }
+        tags: [
+          { name: "Network", values: ["PermaPress"] }
+        ]
       ) {
         edges {
           node {
             id
-            owner {
-              address
+            tags {
+              name
+              value
             }
-            data {
-              size
-              type
+          }
+        }
+      }
+    }`;
+
+    const networkTransactions = await executeGraphQL(networkTxQuery);
+    return networkTransactions;
+  };
+
+  const filterContractTxIds = (networkTransactions) => {
+    const filteredTxIds = [];
+    networkTransactions.forEach(transaction => {
+      transaction.node.tags.forEach(tag => {
+        if (tag.name === "Contract-Src") {
+          filteredTxIds.push(tag.value);
+        }
+      });
+    });
+    return filteredTxIds;
+  };
+
+  const fetchContractTransactions = async (contractTxId) => {
+    const contractTxQuery = `
+    {
+      transactions(
+        tags: [
+          { name: "Contract-Src", values: ["${contractTxId}"] }
+        ]
+      ) {
+        edges {
+          node {
+            id
+            block {
+              timestamp
             }
             tags {
               name
               value
             }
-            block {
-              timestamp
-            }
           }
         }
       }
-    }
-  `;
+    }`;
 
-  const variables = {
-    name: "Network",
-    values: ["PermaPress"],
+    return await executeGraphQL(contractTxQuery);
   };
 
-  const endpoint = "https://arweave.net/graphql";
+  const fetchInitState = async (contractTxIds) => {
+    const transactionDetails = [];
 
-  useEffect(() => {
-    const fetchResults = async () => {
-      try {
-        const result = await request(endpoint, homeQuery, variables);
-        const edges = result.transactions.edges;
-
-        const resultsBuilder = edges.map((edge) => {
-          const initStateTag = edge.node.tags.find(tag => tag.name === "Init-State");
-          const contractSrcTag = edge.node.tags.find(tag => tag.name === "Contract-Src");
-
-          let parsedInitState = {};
-          if (initStateTag) {
-            try {
-              parsedInitState = JSON.parse(initStateTag.value);
-            } catch (error) {
-              console.error("Error parsing Init-State", error);
-            }
-          }
-
-          const timestamp = edge.node.block 
-            ? new Date(edge.node.block.timestamp * 1000).toISOString() 
-            : "N/A";
-
-          return {
-            txID: edge.node.id,
-            contractSrc: contractSrcTag ? contractSrcTag.value : "Unknown",  // Fetching Contract-Src tag value
-            owner: parsedInitState.owner || "Unknown Owner",
-            title: parsedInitState.title || "Untitled",
-            description: parsedInitState.description || "No description",
-            size: edge.node.data.size,
-            type: edge.node.data.type,
-            timestamp: timestamp,
-            price: parsedInitState.price || "N/A",
-          };
+    for (const contractTxId of contractTxIds) {
+      const transactions = await fetchContractTransactions(contractTxId);
+      
+      if (transactions.length > 0) {
+        // Identify the most recent and oldest transactions
+        const mostRecentTransaction = transactions.reduce((prev, current) => {
+          return (prev.node.block.timestamp > current.node.block.timestamp) ? prev : current;
         });
 
-        const sortedResults = resultsBuilder.sort(
-          (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-        );
+        const oldestTransaction = transactions.reduce((prev, current) => {
+          return (prev.node.block.timestamp < current.node.block.timestamp) ? prev : current;
+        });
 
-        setResults(sortedResults);
+        // Extract Init-State tag from the most recent transaction
+        const initStateTag = mostRecentTransaction.node.tags.find(tag => tag.name === "Init-State");
+
+        if (initStateTag) {
+          const initStateData = JSON.parse(initStateTag.value);
+          transactionDetails.push({
+            contractTxId,
+            mostRecentTxId: mostRecentTransaction.node.id,
+            mostRecentTimestamp: new Date(mostRecentTransaction.node.block.timestamp * 1000).toLocaleString(), // Convert timestamp to readable format
+            oldestTxId: oldestTransaction.node.id,
+            oldestTimestamp: new Date(oldestTransaction.node.block.timestamp * 1000).toLocaleString(), // Convert timestamp to readable format
+            ...initStateData, // Spread init state data directly into the object
+          });
+        }
+      }
+    }
+
+    setTransactionData(transactionDetails);
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const networkTransactions = await fetchNetworkTransactions();
+        const filteredTxIds = filterContractTxIds(networkTransactions);
+        setContractTxIds(filteredTxIds);
+        await fetchInitState(filteredTxIds);
       } catch (error) {
-        console.error("GraphQL query failed", error);
+        console.error("Error fetching transactions:", error);
       }
     };
 
-    fetchResults();
+    fetchData();
   }, []);
 
-  const handlePurchaseClick = (result) => {
-    navigate('/purchase', { 
-      state: { 
-        txId: result.txID,
-        contractSrc: result.contractSrc,   // Passing Contract-Src value to the purchase page
-        currentOwner: result.owner,
-        currentPrice: result.price,
-        currentTitle: result.title,
-        currentDescription: result.description 
-      }
-    });
-  };
-
   return (
-    <>
-      <div>
-        <h1 className="text-center text-2xl font-bold my-5">Easy Minter 2000</h1>
-        <SearchBar />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
-        {results.map((result, index) => (
-          <div key={index} className="border rounded-lg p-4 shadow-lg bg-white">
-            <div className="flex justify-center items-center">
-              <img
-                src={`https://arweave.net/${result.txID}`}
-                alt={`Transaction ${result.txID}`}
-                className="w-full h-40 object-cover"
-              />
-            </div>
-            <div className="mt-3">
-              <h3 className="text-lg font-semibold text-primary">Transaction ID:</h3>
-              <a
-                className="text-sm break-words text-blue-500 hover:underline"
-                href={`https://viewblock.io/arweave/tx/${result.txID}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {result.txID}
-              </a>
-              
-              <h3 className="text-lg font-semibold text-primary mt-3">Title:</h3>
-              <p className="text-sm break-words">{result.title}</p>
-              
-              <h3 className="text-lg font-semibold text-primary mt-3">Owner:</h3>
-              <p className="text-sm break-words">{result.owner}</p>
-              
-              <h3 className="text-lg font-semibold text-primary mt-3">Description:</h3>
-              <p className="text-sm">{result.description}</p>
-
-              <h3 className="text-lg font-semibold text-primary mt-3">Price:</h3>
-              <p className="text-sm">{result.price}</p>
-              
-              <h3 className="text-lg font-semibold text-primary mt-3">Contract-Src:</h3>
-              <p className="text-sm">{result.contractSrc}</p>
-
-              <button 
-                onClick={() => handlePurchaseClick(result)} 
-                className="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
-              >
-                Purchase
-              </button>
-            </div>
-          </div>
+    <div>
+      <SearchBar />
+      <h2>Transaction Data</h2>
+      <ul>
+        {transactionData.map(({ contractTxId, mostRecentTxId, mostRecentTimestamp, oldestTxId, oldestTimestamp, owner, title, description, balance, price }) => (
+          <li key={contractTxId}>
+            <img 
+  src={`https://arweave.net/${oldestTxId}`} 
+  alt={`Oldest Transaction ID: ${oldestTxId}`} 
+/><br></br>
+            <strong>Contract ID:</strong> {contractTxId}<br />
+            <strong>Most Recent Transaction ID:</strong> {mostRecentTxId}<br />
+            <strong>Most Recent Timestamp:</strong> {mostRecentTimestamp}<br />
+            <strong>Oldest Transaction ID:</strong> {oldestTxId}<br />
+            <strong>Oldest Timestamp:</strong> {oldestTimestamp}<br />
+            <strong>Owner:</strong> {owner}<br />
+            <strong>Title:</strong> {title}<br />
+            <strong>Description:</strong> {description}<br />
+            <strong>Balance:</strong> {balance}<br />
+            <strong>Price:</strong> {price}<br />
+          </li>
         ))}
-      </div>
-    </>
+      </ul>
+    </div>
   );
 };
 
