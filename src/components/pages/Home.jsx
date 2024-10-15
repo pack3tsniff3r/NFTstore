@@ -33,7 +33,7 @@ export const Home = () => {
     {
       transactions(
         tags: [
-          { name: "Network", values: ["PermaPress"] }
+          { name: "Network", values: ["Perma-Press"] }
         ]
       ) {
         edges {
@@ -111,14 +111,20 @@ export const Home = () => {
 
         if (initStateTag) {
           const initStateData = JSON.parse(initStateTag.value);
-          transactionDetails.push({
-            contractTxId,
-            mostRecentTxId: mostRecentTransaction.node.id,
-            mostRecentTimestamp: new Date(mostRecentTransaction.node.block.timestamp * 1000).toLocaleString(), // Convert timestamp to readable format
-            oldestTxId: oldestTransaction.node.id,
-            oldestTimestamp: new Date(oldestTransaction.node.block.timestamp * 1000).toLocaleString(), // Convert timestamp to readable format
-            ...initStateData, // Spread init state data directly into the object
-          });
+          
+          // Ensure no duplicates are added based on contractTxId
+          const isDuplicate = transactionDetails.some(item => item.contractTxId === contractTxId);
+
+          if (!isDuplicate) {
+            transactionDetails.push({
+              contractTxId,
+              mostRecentTxId: mostRecentTransaction.node.id,
+              mostRecentTimestamp: new Date(mostRecentTransaction.node.block.timestamp * 1000).toLocaleString(), // Convert timestamp to readable format
+              oldestTxId: oldestTransaction.node.id,
+              oldestTimestamp: new Date(oldestTransaction.node.block.timestamp * 1000).toLocaleString(), // Convert timestamp to readable format
+              ...initStateData, // Spread init state data directly into the object
+            });
+          }
         }
       }
     }
@@ -141,6 +147,10 @@ export const Home = () => {
     fetchData();
   }, []);
 
+  const handlePurchaseClick = (nftData) => {
+    navigate('/purchase', { state: nftData });
+  };
+
   return (
     <div>
       <SearchBar />
@@ -149,9 +159,9 @@ export const Home = () => {
         {transactionData.map(({ contractTxId, mostRecentTxId, mostRecentTimestamp, oldestTxId, oldestTimestamp, owner, title, description, balance, price }) => (
           <li key={contractTxId}>
             <img 
-  src={`https://arweave.net/${oldestTxId}`} 
-  alt={`Oldest Transaction ID: ${oldestTxId}`} 
-/><br></br>
+              src={`https://arweave.net/${oldestTxId}`} 
+              alt={`Oldest Transaction ID: ${oldestTxId}`} 
+            /><br/>
             <strong>Contract ID:</strong> {contractTxId}<br />
             <strong>Most Recent Transaction ID:</strong> {mostRecentTxId}<br />
             <strong>Most Recent Timestamp:</strong> {mostRecentTimestamp}<br />
@@ -162,6 +172,7 @@ export const Home = () => {
             <strong>Description:</strong> {description}<br />
             <strong>Balance:</strong> {balance}<br />
             <strong>Price:</strong> {price}<br />
+            <button onClick={() => handlePurchaseClick({ contractTxId, price, owner, oldestTxId, title, description })}>Purchase</button>
           </li>
         ))}
       </ul>

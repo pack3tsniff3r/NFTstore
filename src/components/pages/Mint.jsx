@@ -134,7 +134,8 @@ export { handle };
                 data: contractSrc,
             });
             contractSrcTx.addTag("Content-Type", "text/javascript");
-            await arweave.transactions.sign(contractSrcTx, walletAddress); // Sign with wallet address
+            contractSrcTx.addTag('App-Name', 'SmartWeaveAction');
+            await arweave.transactions.sign(contractSrcTx, "use_wallet"); // Sign with wallet address
             await arweave.transactions.post(contractSrcTx);
 
             setContractId(contractSrcTx.id);  // Save the Contract ID
@@ -146,7 +147,7 @@ export { handle };
             const imageTransaction = await arweave.createTransaction({
                 data: fileArrayBuffer,
             });
-            imageTransaction.addTag("Network", "PermaPress");
+            imageTransaction.addTag("Network", "Perma-Press");
             imageTransaction.addTag("Content-Type", getContentType(selectedFile));
             imageTransaction.addTag("Init-State", JSON.stringify({
                 owner: walletAddress,
@@ -154,11 +155,11 @@ export { handle };
                 description,
                 price,
                 balance: 1,
-                sold: false, // Initialize as not sold
+             
             }));
             imageTransaction.addTag("Contract-Src", contractSrcTx.id);  // Linking the image to the contract
 
-            await arweave.transactions.sign(imageTransaction, walletAddress); // Sign with wallet address
+            await arweave.transactions.sign(imageTransaction, "use_wallet"); // Sign with wallet address
             await arweave.transactions.post(imageTransaction);
 
             setImageTxId(imageTransaction.id);  // Save the Image Transaction ID
