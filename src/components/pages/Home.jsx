@@ -7,7 +7,7 @@ export const Home = () => {
   const [contractTxIds, setContractTxIds] = useState([]);
   const [transactionData, setTransactionData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
-  const navigate = useNavigate();
+
 
   const executeGraphQL = async (query) => {
     try {
@@ -146,6 +146,7 @@ export const Home = () => {
 
     fetchData();
   }, []);
+  const navigate = useNavigate();  // Initialize useNavigate
 
   const handlePurchaseClick = (nftData) => {
     navigate('/purchase', { state: nftData });
