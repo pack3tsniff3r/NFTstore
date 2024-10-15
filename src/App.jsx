@@ -5,6 +5,7 @@ import { Mint } from './components/pages/Mint';
 import { Home } from './components/pages/Home';
 import { Purchase } from './components/pages/Purchase';
 import { ArweaveWalletKit } from "arweave-wallet-kit";
+import { ToastContainer } from 'react-toastify';
 
 function App() {
   return (
