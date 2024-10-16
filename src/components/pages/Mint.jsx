@@ -102,4 +102,4 @@ export const Mint = () => {
         </div>
     );
 };
-export default Mint
+export default Mint;
