@@ -13,41 +13,64 @@ export const Purchase = () => {
 
   const { contractTxId, price, owner, oldestTxId, title, description } = location.state;
   const [newPrice, setNewPrice] = useState(price);
+  const [contractTxIdDisplay, setContractTxIdDisplay] = useState("");
+  const [paymentTxIdDisplay, setPaymentTxIdDisplay] = useState("");
 
   const handlePurchase = async () => {
     const arweave = Arweave.init({
-        host: 'arweave.net',
-        port: 443,
-        protocol: 'https'
+      host: 'arweave.net',
+      port: 443,
+      protocol: 'https'
     });
-
-    const contract = await arweave.createTransaction({
-      data: Math.random().toString().slice(-4)  // Adding random data for the new transaction
-    });
-
-    contract.addTag('App-Name', 'SmartWeaveAction');
-    contract.addTag('App-Version', '0.3.0');
-    contract.addTag('Network', 'Perma-Press');
-    contract.addTag('Contract-Src', contractTxId);
-    contract.addTag('Original-Tx-Id', oldestTxId);
-
-    contract.addTag('Init-State', JSON.stringify({
-      owner: walletAddress,
-      title: title,
-      description: description,
-      price: newPrice,
-      balance: 1,
-    }));
 
     try {
-      await arweave.transactions.sign(contract);
-      const response = await arweave.transactions.post(contract);
+      // Step 1: Create the smart contract transaction (to update ownership)
+      const contract = await arweave.createTransaction({
+        data: Math.random().toString().slice(-4)  // Adding random data for the new transaction
+      });
+  
+      contract.addTag('App-Name', 'SmartWeaveAction');
+      contract.addTag('App-Version', '0.3.0');
+      contract.addTag('Network', 'Perma-Press');
+      contract.addTag('Contract-Src', contractTxId);
+      contract.addTag('Original-Tx-Id', oldestTxId);
+  
+      contract.addTag('Init-State', JSON.stringify({
+        owner: walletAddress,
+        title: title,
+        description: description,
+        price: newPrice,
+        balance: 1,
+      }));
+  
+      // Step 2: Sign and post the contract transaction
+      await arweave.transactions.sign(contract, "use_wallet");
+      const contractResponse = await arweave.transactions.post(contract);
+  
+      if (contractResponse.status === 200) {
+        setContractTxIdDisplay(contract.id); // Set contract transaction ID for display
+  
+        // Step 3: If contract transaction is successful, transfer AR tokens to the seller
+        const paymentTransaction = await arweave.createTransaction({
+          target: owner,  // The current owner of the NFT (seller)
+          quantity: arweave.ar.arToWinston(newPrice),  // Convert price from AR to winston (ARweave's smallest unit)
+        });
+  
+        // Step 4: Sign and post the payment transaction
+        await arweave.transactions.sign(paymentTransaction, "use_wallet");
+        const paymentResponse = await arweave.transactions.post(paymentTransaction);
+  
+        if (paymentResponse.status === 200) {
+          setPaymentTxIdDisplay(paymentTransaction.id); // Set payment transaction ID for display
+          toast.success(`Transaction successful! Contract Tx ID: ${contract.id}`);
+          toast.success(`AR sent to seller! Payment Tx ID: ${paymentTransaction.id}`);
+        } else {
+          toast.error(`Payment transaction failed! Status: ${paymentResponse.status}`);
+        }
 
-      if (response.status === 200) {
-        toast.success(`Transaction successful! Transaction ID: ${contract.id}`);
         navigate('/');
       } else {
-        toast.error(`Transaction failed! Status: ${response.status}`);
+        toast.error(`Contract transaction failed! Status: ${contractResponse.status}`);
       }
     } catch (error) {
       console.error("Error posting transaction:", error);
@@ -85,6 +108,13 @@ export const Purchase = () => {
           Confirm Purchase
         </button>
       </div>
+      {contractTxIdDisplay && (
+        <div className="mt-4 p-4 bg-green-800 text-white rounded-md">
+          <strong>Contract Transaction ID:</strong> {contractTxIdDisplay}<br />
+          <strong>Payment Transaction ID:</strong> {paymentTxIdDisplay}<br />
+          <p>You just sent {newPrice} AR to the wallet address of the seller ({owner})!</p>
+        </div>
+      )}
     </div>
   );
 };
