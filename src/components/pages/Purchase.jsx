@@ -15,7 +15,11 @@ export const Purchase = () => {
   const [newPrice, setNewPrice] = useState(price);
 
   const handlePurchase = async () => {
-    const arweave = Arweave.init();
+    const arweave = Arweave.init({
+        host: 'arweave.net',
+        port: 443,
+        protocol: 'https'
+    });
 
     const contract = await arweave.createTransaction({
       data: Math.random().toString().slice(-4)  // Adding random data for the new transaction

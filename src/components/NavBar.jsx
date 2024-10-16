@@ -12,7 +12,7 @@ function NavBar() {
        
         <li><NavLink to="/mint">Mint</NavLink></li>
 
-        <li><NavLink to="/purchase">Purchase</NavLink></li>
+        
         
       </ul>
       <div className="wallet-connect">
