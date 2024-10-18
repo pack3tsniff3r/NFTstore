@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 import SearchBar from "../SearchBar";
-import './Home.css'; // Import the CSS for custom styles
 
 export const Home = () => {
   const [contractTxIds, setContractTxIds] = useState([]);
   const [transactionData, setTransactionData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
-
 
   const executeGraphQL = async (query) => {
     try {
@@ -146,10 +144,15 @@ export const Home = () => {
 
     fetchData();
   }, []);
+
   const navigate = useNavigate();  // Initialize useNavigate
 
   const handlePurchaseClick = (nftData) => {
     navigate('/purchase', { state: nftData });
+  };
+
+  const handleMoreInfoClick = (nftData) => {
+    navigate('/info', { state: nftData });
   };
 
   const handleSearch = (searchCriteria) => {
@@ -179,30 +182,29 @@ export const Home = () => {
       <SearchBar onSearch={handleSearch} />
       <h2 className="text-2xl font-bold mb-4">Transaction Data</h2>
       <div className="overflow-x-auto">
-        <ul className="space-y-4">
+        <ul className="space-y-4 sm:flex sm:space-y-0 sm:space-x-4">
           {filteredData.map(({ contractTxId, mostRecentTxId, mostRecentTimestamp, oldestTxId, oldestTimestamp, owner, title, description, balance, price }) => (
-            <li key={contractTxId} className="bg-gray-800 rounded-lg p-4 shadow-lg">
+            <li key={contractTxId} className="bg-gray-800 rounded-lg p-4 shadow-lg sm:w-1/3 border border-silver">
               <img 
                 src={`https://arweave.net/${oldestTxId}`} 
                 alt={`Oldest Transaction ID: ${oldestTxId}`} 
                 className="rounded-md w-full h-auto"
               />
-              <div className="mt-2">
-                <strong>Contract ID:</strong> {contractTxId}<br />
-                <strong>Most Recent Transaction ID:</strong> {mostRecentTxId}<br />
-                <strong>Most Recent Timestamp:</strong> {mostRecentTimestamp}<br />
-                <strong>Oldest Transaction ID:</strong> {oldestTxId}<br />
-                <strong>Oldest Timestamp:</strong> {oldestTimestamp}<br />
-                <strong>Owner:</strong> {owner}<br />
-                <strong>Title:</strong> {title}<br />
-                <strong>Description:</strong> {description}<br />
-                <strong>Balance:</strong> {balance}<br />
-                <strong>Price:</strong> {price}<br />
-                <button 
-                  onClick={() => handlePurchaseClick({ contractTxId, price, owner, oldestTxId, title, description })} 
-                  className="mt-2 bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition"
+              <h3 className="text-lg font-bold text-white mt-2">{title}</h3>
+              <p className="text-white">{description}</p>
+              <p className="text-white font-semibold">Price: {price} AR</p>
+              <div className="flex justify-between mt-4">
+                <button
+                  onClick={() => handlePurchaseClick({ contractTxId, price, owner, oldestTxId, title, description })}
+                  className="bg-green-600 text-black py-2 px-4 rounded-full hover:bg-green-500 transition"
                 >
-                  Purchase
+                  Buy Now
+                </button>
+                <button
+                  onClick={() => handleMoreInfoClick({ contractTxId, owner, price, mostRecentTxId, title, description, oldestTxId })}
+                  className="bg-purple-600 text-black py-2 px-4 rounded-full hover:bg-purple-500 transition"
+                >
+                  More Info
                 </button>
               </div>
             </li>

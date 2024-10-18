@@ -4,7 +4,6 @@ import { useActiveAddress } from 'arweave-wallet-kit';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';  // Ensure this is imported for styling
-import './Purchase.css'; // Import the CSS for custom styles
 
 export const Purchase = () => {
   const location = useLocation();
@@ -26,7 +25,7 @@ export const Purchase = () => {
     try {
       // Step 1: Create the smart contract transaction (to update ownership)
       const contract = await arweave.createTransaction({
-        data: Math.random().toString().slice(-4)  // Adding random data for the new transaction
+        data: Math.random().toString().slice(-4)
       });
   
       contract.addTag('App-Name', 'SmartWeaveAction');
@@ -43,25 +42,22 @@ export const Purchase = () => {
         balance: 1,
       }));
   
-      // Step 2: Sign and post the contract transaction
       await arweave.transactions.sign(contract, "use_wallet");
       const contractResponse = await arweave.transactions.post(contract);
   
       if (contractResponse.status === 200) {
-        setContractTxIdDisplay(contract.id); // Set contract transaction ID for display
+        setContractTxIdDisplay(contract.id);
   
-        // Step 3: If contract transaction is successful, transfer AR tokens to the seller
         const paymentTransaction = await arweave.createTransaction({
-          target: owner,  // The current owner of the NFT (seller)
-          quantity: arweave.ar.arToWinston(newPrice),  // Convert price from AR to winston (ARweave's smallest unit)
+          target: owner,
+          quantity: arweave.ar.arToWinston(newPrice),
         });
   
-        // Step 4: Sign and post the payment transaction
         await arweave.transactions.sign(paymentTransaction, "use_wallet");
         const paymentResponse = await arweave.transactions.post(paymentTransaction);
   
         if (paymentResponse.status === 200) {
-          setPaymentTxIdDisplay(paymentTransaction.id); // Set payment transaction ID for display
+          setPaymentTxIdDisplay(paymentTransaction.id);
           toast.success(`Transaction successful! Contract Tx ID: ${contract.id}`);
           toast.success(`AR sent to seller! Payment Tx ID: ${paymentTransaction.id}`);
         } else {
@@ -79,40 +75,49 @@ export const Purchase = () => {
   };
 
   return (
-    <div className="bg-gray-900 text-white p-4">
-      <h2 className="text-2xl font-bold mb-4">Purchase NFT</h2>
-      <div className="bg-gray-800 rounded-lg p-4 shadow-lg">
+    <div className="max-w-lg mx-auto p-6 bg-gray-900 text-white rounded-lg shadow-lg">
+      <h2 className="text-center text-2xl font-bold mb-6">Purchase NFT</h2>
+      <div className="border border-silver rounded-lg p-6 bg-gray-800 shadow-md">
         <img 
           src={`https://arweave.net/${oldestTxId}`} 
           alt={`NFT from Transaction ID: ${oldestTxId}`} 
-          className="rounded-md w-full h-auto mb-4"
+          className="rounded-md w-full h-auto mb-6"
         />
-        <strong>Title:</strong> {title}<br />
-        <strong>Description:</strong> {description}<br />
-        <strong>Current Owner:</strong> {owner}<br />
-        <strong>Current Price:</strong> {price}<br />
-        <label className="block mt-4">
-          <strong>Set New Sale Price:</strong>
+        <div className="mb-4">
+          <strong>Title:</strong> {title}
+        </div>
+        <div className="mb-4">
+          <strong>Description:</strong> {description}
+        </div>
+        <div className="mb-4">
+          <strong>Current Owner:</strong> {owner}
+        </div>
+        <div className="mb-4">
+          <strong>Current Price:</strong> {price} AR
+        </div>
+        <div className="mb-6">
+          <label htmlFor="newPrice" className="block text-white mb-2"><strong>Set New Sale Price:</strong></label>
           <input 
             type="number" 
+            id="newPrice" 
             value={newPrice} 
             onChange={(e) => setNewPrice(e.target.value)} 
-            className="mt-2 block w-full p-2 bg-gray-700 border border-gray-600 rounded-md"
+            className="w-full p-2 bg-gray-700 border border-silver rounded-md text-white"
             placeholder="Enter new price"
           />
-        </label>
+        </div>
         <button 
           onClick={handlePurchase} 
-          className="mt-4 bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition"
+          className="w-full py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
         >
           Confirm Purchase
         </button>
       </div>
       {contractTxIdDisplay && (
-        <div className="mt-4 p-4 bg-green-800 text-white rounded-md">
+        <div className="mt-6 p-4 bg-green-700 text-white rounded-lg shadow-md">
           <strong>Contract Transaction ID:</strong> {contractTxIdDisplay}<br />
           <strong>Payment Transaction ID:</strong> {paymentTxIdDisplay}<br />
-          <p>You just sent {newPrice} AR to the wallet address of the seller ({owner})!</p>
+          <p className="mt-2">You just sent {newPrice} AR to the wallet address of the seller ({owner})!</p>
         </div>
       )}
     </div>
@@ -120,3 +125,5 @@ export const Purchase = () => {
 };
 
 export default Purchase;
+
+
