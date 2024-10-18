@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 import SearchBar from "../SearchBar";
+import NavBar from "../NavBar"; // Import NavBar
 
 export const Home = () => {
   const [contractTxIds, setContractTxIds] = useState([]);
   const [transactionData, setTransactionData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
+  const [isSearchVisible, setIsSearchVisible] = useState(false); // State to track search bar visibility
+
 
   const executeGraphQL = async (query) => {
     try {
@@ -175,44 +178,48 @@ export const Home = () => {
     });
 
     setFilteredData(filtered);
-  };
-
-  return (
-    <div className="bg-gray-900 text-white p-4">
-      <SearchBar onSearch={handleSearch} />
-      <h2 className="text-2xl font-bold mb-4">Transaction Data</h2>
-      <div className="overflow-x-auto">
-        <ul className="space-y-4 sm:flex sm:space-y-0 sm:space-x-4">
-          {filteredData.map(({ contractTxId, mostRecentTxId, mostRecentTimestamp, oldestTxId, oldestTimestamp, owner, title, description, balance, price }) => (
-            <li key={contractTxId} className="bg-gray-800 rounded-lg p-4 shadow-lg sm:w-1/3 border border-silver">
-              <img 
-                src={`https://arweave.net/${oldestTxId}`} 
-                alt={`Oldest Transaction ID: ${oldestTxId}`} 
-                className="rounded-md w-full h-auto"
-              />
-              <h3 className="text-lg font-bold text-white mt-2">{title}</h3>
-              <p className="text-white">{description}</p>
-              <p className="text-white font-semibold">Price: {price} AR</p>
-              <div className="flex justify-between mt-4">
-                <button
-                  onClick={() => handlePurchaseClick({ contractTxId, price, owner, oldestTxId, title, description })}
-                  className="bg-green-600 text-black py-2 px-4 rounded-full hover:bg-green-500 transition"
-                >
-                  Buy Now
-                </button>
-                <button
-                  onClick={() => handleMoreInfoClick({ contractTxId, owner, price, mostRecentTxId, title, description, oldestTxId })}
-                  className="bg-purple-600 text-black py-2 px-4 rounded-full hover:bg-purple-500 transition"
-                >
-                  More Info
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+  }
+    const handleSearchBarToggle = () => {
+      setIsSearchVisible(prev => !prev); // Toggle search bar visibility
+    };
+  
+    return (
+      <div className="bg-gray-900 text-white p-4">
+        <NavBar onSearchBarToggle={handleSearchBarToggle} /> {/* Pass handler to NavBar */}
+        {isSearchVisible && <SearchBar onSearch={handleSearch} />} {/* Render SearchBar only when visible */}
+        <h2 className="text-2xl font-bold mb-4"></h2>
+        <div className="overflow-x-auto">
+          <ul className="space-y-4 sm:flex sm:space-y-0 sm:space-x-4">
+            {filteredData.map(({ contractTxId, mostRecentTxId, mostRecentTimestamp, oldestTxId, oldestTimestamp, owner, title, description, balance, price }) => (
+              <li key={contractTxId} className="bg-gray-800 rounded-lg p-4 shadow-lg sm:w-1/3 border border-silver">
+                <img 
+                  src={`https://arweave.net/${oldestTxId}`} 
+                  alt={`Oldest Transaction ID: ${oldestTxId}`} 
+                  className="rounded-md w-full h-auto"
+                />
+                <h3 className="text-lg font-bold text-white mt-2">{title}</h3>
+                <p className="text-white">{description}</p>
+                <p className="text-white font-semibold">Price: {price} AR</p>
+                <div className="flex justify-between mt-4">
+                  <button
+                    onClick={() => handlePurchaseClick({ contractTxId, price, owner, oldestTxId, title, description })}
+                    className="bg-green-600 text-black py-2 px-4 rounded-full hover:bg-green-500 transition"
+                  >
+                    Buy Now
+                  </button>
+                  <button
+                    onClick={() => handleMoreInfoClick({ contractTxId, owner, price, mostRecentTxId, title, description, oldestTxId })}
+                    className="bg-purple-600 text-black py-2 px-4 rounded-full hover:bg-purple-500 transition"
+                  >
+                    More Info
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-    </div>
-  );
-};
-
-export default Home;
+    );
+  };
+  
+  export default Home;
