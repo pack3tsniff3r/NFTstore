@@ -33,6 +33,14 @@ function NavBar({ onSearchBarToggle }) {
           </NavLink>
         </li>
         <li>
+          <NavLink
+            to="/profile"
+            className="bg-purple-500 text-white font-bold py-2 px-4 rounded-full hover:bg-purple-600 transition duration-300"
+          >
+            Profile
+          </NavLink>
+        </li>
+        <li>
           <button
             onClick={handleSearchButtonClick}
             className="bg-purple-500 text-white font-bold py-2 px-4 rounded-full hover:bg-purple-600 transition duration-300"
