@@ -11,9 +11,10 @@ function App() {
   return (
     <div className="App">
       <ArweaveWalletKit>
-         
+     
           <Routes>
             <Route path="/" element={<Home />} />
+      
             <Route path="/mint" element={<Mint />} />
             <Route path="/purchase" element={<Purchase />} />
             <Route path="/info" element={<Info />} />

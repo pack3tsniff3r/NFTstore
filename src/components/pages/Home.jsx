@@ -2,13 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 import SearchBar from "../SearchBar";
 import NavBar from "../NavBar"; // Import NavBar
+import Swiper from 'swiper'; // Ensure Swiper is imported correctly
+import 'swiper/swiper-bundle.css'; // Import Swiper styles from the public folder
 
 export const Home = () => {
   const [contractTxIds, setContractTxIds] = useState([]);
   const [transactionData, setTransactionData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [isSearchVisible, setIsSearchVisible] = useState(false); // State to track search bar visibility
-
 
   const executeGraphQL = async (query) => {
     try {
@@ -178,20 +179,44 @@ export const Home = () => {
     });
 
     setFilteredData(filtered);
-  }
-    const handleSearchBarToggle = () => {
-      setIsSearchVisible(prev => !prev); // Toggle search bar visibility
-    };
-  
-    return (
-      <div className="bg-gray-900 text-white p-4">
-        <NavBar onSearchBarToggle={handleSearchBarToggle} /> {/* Pass handler to NavBar */}
-        {isSearchVisible && <SearchBar onSearch={handleSearch} />} {/* Render SearchBar only when visible */}
-        <h2 className="text-2xl font-bold mb-4"></h2>
-        <div className="overflow-x-auto">
-          <ul className="space-y-4 sm:flex sm:space-y-0 sm:space-x-4">
-            {filteredData.map(({ contractTxId, mostRecentTxId, mostRecentTimestamp, oldestTxId, oldestTimestamp, owner, title, description, balance, price }) => (
-              <li key={contractTxId} className="bg-gray-800 rounded-lg p-4 shadow-lg sm:w-1/3 border border-silver">
+  };
+
+  const handleSearchBarToggle = () => {
+    setIsSearchVisible(prev => !prev); // Toggle search bar visibility
+  };
+
+  useEffect(() => {
+    const swiper = new Swiper('.swiper-container', {
+      navigation: {
+        nextEl: '.swiper-button-next',
+        prevEl: '.swiper-button-prev',
+      },
+      pagination: {
+        el: '.swiper-pagination',
+        clickable: true,
+      },
+      loop: true, // Enable looping of slides
+      slidesPerView: 1, // 1 item on small screens
+      breakpoints: {
+        640: {
+          slidesPerView: 4, // 4 items on larger screens
+          spaceBetween: 20, // Space between items
+        },
+      },
+    });
+  }, [filteredData]);
+
+  return (
+    <div className="bg-gray-900 text-white p-4">
+      <NavBar onSearchBarToggle={handleSearchBarToggle} /> {/* Pass handler to NavBar */}
+      {isSearchVisible && <SearchBar onSearch={handleSearch} />} {/* Render SearchBar only when visible */}
+      <h2 className="text-2xl font-bold mb-4">NFT Gallery</h2>
+
+      <div className="swiper-container">
+        <div className="swiper-wrapper">
+          {filteredData.map(({ contractTxId, mostRecentTxId, mostRecentTimestamp, oldestTxId, oldestTimestamp, owner, title, description, balance, price }) => (
+            <div className="swiper-slide" key={contractTxId}>
+              <div className="bg-gray-800 rounded-lg p-4 shadow-lg border border-silver">
                 <img 
                   src={`https://arweave.net/${oldestTxId}`} 
                   alt={`Oldest Transaction ID: ${oldestTxId}`} 
@@ -214,12 +239,16 @@ export const Home = () => {
                     More Info
                   </button>
                 </div>
-              </li>
-            ))}
-          </ul>
+              </div>
+            </div>
+          ))}
         </div>
+        <div className="swiper-button-next"></div>
+        <div className="swiper-button-prev"></div>
+        <div className="swiper-pagination"></div>
       </div>
-    );
-  };
-  
-  export default Home;
+    </div>
+  );
+};
+
+export default Home;
