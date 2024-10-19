@@ -36,17 +36,17 @@ export const Info = () => {
           </div>
           
           <div className="mb-4">
-            <a className="text-purple-400 underline" href={`https://arweave.net/tx/${contractTxId}`} target="_blank" rel="noopener noreferrer">
+            <a className="text-purple-400 underline" href={`https://viewblock.io/arweave/tx/${contractTxId}`} target="_blank" rel="noopener noreferrer">
               Contract Source: {contractTxId}
             </a>
           </div>
           <div className="mb-4">
-            <a className="text-purple-400 underline" href={`https://arweave.net/tx/${oldestTxId}`} target="_blank" rel="noopener noreferrer">
+            <a className="text-purple-400 underline" href={`https://viewblock.io/arweave/tx/${oldestTxId}`} target="_blank" rel="noopener noreferrer">
               Original Contract: {oldestTxId}
             </a>
           </div>
           <div className="mb-6">
-            <a className="text-purple-400 underline" href={`https://arweave.net/tx/${mostRecentTxId}`} target="_blank" rel="noopener noreferrer">
+            <a className="text-purple-400 underline" href={`https://viewblock.io/arweave/tx/${mostRecentTxId}`} target="_blank" rel="noopener noreferrer">
               Current Contract: {mostRecentTxId}
             </a>
           </div>
